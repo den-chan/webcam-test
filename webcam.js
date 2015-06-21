@@ -7,9 +7,10 @@ function ajax(src) {
 }
 function rtc (odesc) {
   pc = new RTCPeerConnection(servers, pcConstraint);
-  navigator.getUserMedia({video: true}, function(stream) {
-    pc.addStream("webkitMediaStream" in window ? new webkitMediaStream(stream) : stream);
-    if (!odesc) localvideo.src = window.URL.createObjectURL(localMediaStream = stream);
+  navigator.getUserMedia({video: true, audio: true}, function(stream) {
+    localMediaStream = stream;
+    if (!odesc) localvideo.src = window.URL.createObjectURL(localMediaStream);
+    pc.addStream(localMediaStream);
     pc.onicecandidate = function (e) { if (e.candidate === null) ws.send( JSON.stringify(this.localDescription) ) };
     pc.onaddstream = function (e) { console.log("stream"); remotevideo.src = window.URL.createObjectURL(e.stream) };
     if (odesc) {
@@ -24,16 +25,29 @@ function rtc (odesc) {
   }, nilfun);
   function start(dc) {
     dc.onopen = function () { ws.close() };
-    dc.onmessage = function () {};
+    dc.onmessage = function (e) {
+      var a = document.createElement("p");
+      a.className = "remotemsg";
+      a.innerHTML = escape(e.data);
+      display.appendChild(a);
+      display.scrollTop = display.scrollHeight
+    };
     dc.onclose = function () {};
   }
+}
+function escape (text) {
+  var div = document.createElement("div");
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML
 }
 
 var
   nilfun = function () {},
-  main = document.querySelector('main'),
-  localvideo = document.querySelector('#local'),
-  remotevideo = document.querySelector('#remote'),
+  main = document.querySelector("main"),
+  localvideo = document.querySelector("#local"),
+  remotevideo = document.querySelector("#remote"),
+  display = document.querySelector("#display"),
+  input = document.querySelector("#input"),
   localMediaStream,
   uri = "wss://den-chan.herokuapp.com",
   ws = new WebSocket(uri),
@@ -47,6 +61,17 @@ navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia 
 main.requestFullscreen = main.requestFullscreen || main.webkitRequestFullscreen || main.mozRequestFullScreen || main.msRequestFullscreen;
 
 main.addEventListener("dblclick", function (e) { main.requestFullscreen() });
+input.addEventListener("keyup", function (e) {
+  if (e.which === 13) {
+    var a = document.createElement("p");
+    a.className = "localmsg";
+    a.innerHTML = escape(this.value);
+    display.appendChild(a);
+    display.scrollTop = display.scrollHeight;
+    dc.send(this.value)
+    this.value = "";
+  }
+});
 ws.onopen = function () { rtc() };
 ws.onmessage = function(message) {
   var desc = JSON.parse(message.data);
