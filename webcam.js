@@ -7,8 +7,7 @@ function ajax(src) {
 }
 function rtc (odesc) {
   pc = new RTCPeerConnection(servers, pcConstraint);
-  navigator.getUserMedia({video: true}, function(stream) {
-    console.log(stream.getVideoTracks());
+  navigator.getUserMedia({video: true, audio: true}, function(stream) {
     localMediaStream = stream;
     if (!odesc) localvideo.src = window.URL.createObjectURL(localMediaStream);
     pc.addStream(localMediaStream);
