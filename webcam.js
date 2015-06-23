@@ -9,11 +9,22 @@ function ajax(src) {
     xhr.send();
   })
 }
-//  Offer/answer WebRTC with video + audio stream & chat on a data channel
+//  Connect websocket to exchange webRTC SDPs
+function ws(uri) {
+  return new Promise(function (resolve) {
+    ws = new WebSocket(uri);
+    ws.onopen = resolve;
+    ws.onmessage = function(m) {
+      var desc = JSON.parse(m.data);
+      if (desc.type === "offer") rtc(desc);
+      else if (desc.type === "answer") pc.setRemoteDescription(new RTCSessionDescription(desc))
+    }
+  })
+}
+//  Offer/answer webRTC with video + audio stream & chat on a data channel
 function rtc (odesc) {
-  pc = new RTCPeerConnection(servers, pcConstraint);
+  pc = new RTCPeerConnection(/*servers*/{"iceServers": [{ "url": "stun:stun.l.google.com:19302" }]}, pcConstraint);
   navigator.getUserMedia({video: true, audio: true}, function(stream) {
-    console.log(odesc)
     localMediaStream = stream;
     if (!odesc) localvideo.src = window.URL.createObjectURL(localMediaStream);
     pc.addStream(localMediaStream);
@@ -61,7 +72,6 @@ var
   display = document.querySelector("#display"),
   input = document.querySelector("#input"),
   localMediaStream,
-  uri = "wss://den-chan.herokuapp.com",
   ws, pc, dc, servers,
   pcConstraint = { optional: [{ "RtpDataChannels": false }] };
 
@@ -89,15 +99,4 @@ input.addEventListener("keyup", function (e) {
 
 //Init
 resize();
-Promise.all([
-  ajax("stun.json"),
-  new Promise(function (resolve) {
-    ws = new WebSocket(uri);
-    ws.onopen = resolve;
-    ws.onmessage = function(m) {
-      var desc = JSON.parse(m.data);
-      if (desc.type === "offer") rtc(desc);
-      else if (desc.type === "answer") pc.setRemoteDescription(new RTCSessionDescription(desc))
-    }
-  })
-]).then(function () { rtc() })
+Promise.all([ ajax("stun.json"), ws("wss://den-chan.herokuapp.com/pair") ]).then(function () { rtc() })
